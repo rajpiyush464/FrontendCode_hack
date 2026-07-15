@@ -20,6 +20,7 @@ import { maintenanceActions } from '../store/slices/maintenanceSlice';
 import { useAlertSound } from '../hooks/useAlertSound';
 import type { ChartMetric } from '../types';
 import { THRESHOLDS } from '../utils/mockData';
+import { useTelemetrySocket } from '../hooks/useTelemetrySocket';
 
 function metricStatus(
   value: number,
@@ -49,7 +50,8 @@ export default function Dashboard() {
   const onExpand = (metric: ChartMetric | null) => {
     dispatch(chartActions.setExpandedChart(metric));
   };
-
+// Start WebSocket connection for live telemetry
+  useTelemetrySocket(currentVehicle?.id ?? 'EV-001');
   const onResolveAllAlerts = () => {
     dispatch(alertActions.resolveAllAlertsRequest());
   };

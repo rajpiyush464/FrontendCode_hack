@@ -1,11 +1,18 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
-import type { ChartSeries, ChartMetric, ChartRange, AnalyticsData, LoadingState } from '../../types';
+import type {
+  ChartSeries,
+  ChartMetric,
+  ChartRange,
+  AnalyticsData,
+  LoadingState,
+} from '../../types';
 
+// Redux state shape for charts
 interface ChartState {
   voltage: ChartSeries | null;
   current: ChartSeries | null;
   temperature: ChartSeries | null;
-  series: Record<string, ChartSeries>;
+  series: Record<string, ChartSeries>; // keyed by metric name
   analytics: AnalyticsData | null;
   range: ChartRange;
   expandedChart: ChartMetric | null;
@@ -14,6 +21,7 @@ interface ChartState {
   error: string | null;
 }
 
+// Initial state
 const initialState: ChartState = {
   voltage: null,
   current: null,
@@ -31,6 +39,7 @@ const chartSlice = createSlice({
   name: 'chart',
   initialState,
   reducers: {
+    // --- API fetch reducers (history) ---
     fetchVoltageRequest(state, _action: PayloadAction<{ vehicleId: string; range?: ChartRange }>) {
       state.status = 'loading';
       state.error = null;
@@ -44,6 +53,7 @@ const chartSlice = createSlice({
       state.status = 'failed';
       state.error = action.payload;
     },
+
     fetchCurrentRequest(state, _action: PayloadAction<{ vehicleId: string; range?: ChartRange }>) {
       state.error = null;
     },
@@ -54,6 +64,7 @@ const chartSlice = createSlice({
     fetchCurrentFailure(state, action: PayloadAction<string>) {
       state.error = action.payload;
     },
+
     fetchTemperatureRequest(
       state,
       _action: PayloadAction<{ vehicleId: string; range?: ChartRange }>
@@ -67,6 +78,7 @@ const chartSlice = createSlice({
     fetchTemperatureFailure(state, action: PayloadAction<string>) {
       state.error = action.payload;
     },
+
     fetchAllChartsRequest(
       state,
       _action: PayloadAction<{ vehicleId: string; range?: ChartRange }>
@@ -76,7 +88,11 @@ const chartSlice = createSlice({
     },
     fetchAllChartsSuccess(
       state,
-      action: PayloadAction<{ voltage: ChartSeries; current: ChartSeries; temperature: ChartSeries }>
+      action: PayloadAction<{
+        voltage: ChartSeries;
+        current: ChartSeries;
+        temperature: ChartSeries;
+      }>
     ) {
       state.status = 'succeeded';
       state.voltage = action.payload.voltage;
@@ -90,6 +106,7 @@ const chartSlice = createSlice({
       state.status = 'failed';
       state.error = action.payload;
     },
+
     fetchAnalyticsRequest(state, _action: PayloadAction<{ vehicleId: string; period?: string }>) {
       state.analyticsStatus = 'loading';
     },
@@ -101,11 +118,62 @@ const chartSlice = createSlice({
       state.analyticsStatus = 'failed';
       state.error = action.payload;
     },
+
     setChartRange(state, action: PayloadAction<ChartRange>) {
       state.range = action.payload;
     },
     setExpandedChart(state, action: PayloadAction<ChartMetric | null>) {
       state.expandedChart = action.payload;
+    },
+
+    // --- NEW reducer for WebSocket live updates ---
+    addTelemetryPoint(
+      state,
+      action: PayloadAction<{ metric: ChartMetric; point: { timestamp: string; value: number } }>
+    ) {
+      const { metric, point } = action.payload;
+
+      // Ensure series exists
+      if (!state.series[metric]) {
+        state.series[metric] = {
+          metric,
+          name: metric,
+          unit:
+            metric === 'voltage'
+              ? 'V'
+              : metric === 'temperature'
+              ? '°C'
+              : metric === 'current'
+              ? 'A'
+              : '',
+          color:
+            metric === 'voltage'
+              ? '#06b6d4'
+              : metric === 'temperature'
+              ? '#facc15'
+              : '#f43f5e',
+          data: [],
+          avg: 0,
+          min: 0,
+          max: 0,
+        };
+      }
+
+      // Append new point, keep last 100
+      state.series[metric].data = [...state.series[metric].data, point].slice(-100);
+
+      // Update quick stats
+      const values = state.series[metric].data.map((d) => d.value);
+      if (values.length > 0) {
+        state.series[metric].avg = values.reduce((a, b) => a + b, 0) / values.length;
+        state.series[metric].min = Math.min(...values);
+        state.series[metric].max = Math.max(...values);
+      }
+
+      // Mirror into top-level keys
+      if (metric === 'voltage') state.voltage = state.series[metric];
+      if (metric === 'current') state.current = state.series[metric];
+      if (metric === 'temperature') state.temperature = state.series[metric];
     },
   },
 });
