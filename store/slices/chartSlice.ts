@@ -126,14 +126,14 @@ const chartSlice = createSlice({
       state.expandedChart = action.payload;
     },
 
-    // --- NEW reducer for WebSocket live updates ---
+    // --- UPDATED reducer for rapid continuous ventilator streaming ---
     addTelemetryPoint(
       state,
       action: PayloadAction<{ metric: ChartMetric; point: { timestamp: string; value: number } }>
     ) {
       const { metric, point } = action.payload;
 
-      // Ensure series exists
+      // Initialize series structure if it does not exist yet
       if (!state.series[metric]) {
         state.series[metric] = {
           metric,
@@ -159,18 +159,21 @@ const chartSlice = createSlice({
         };
       }
 
-      // Append new point, keep last 100
-      state.series[metric].data = [...state.series[metric].data, point].slice(-100);
+      // 🌊 THE VENTILATOR EFFECT: Change historical tracking array limit from 100 down to 25.
+      // Pushing to the end and taking the last 25 creates a fast, dynamic rolling horizon.
+      state.series[metric].data = [...state.series[metric].data, point].slice(-25);
 
-      // Update quick stats
+      // Recalculate runtime aggregates cleanly
       const values = state.series[metric].data.map((d) => d.value);
       if (values.length > 0) {
-        state.series[metric].avg = values.reduce((a, b) => a + b, 0) / values.length;
-        state.series[metric].min = Math.min(...values);
-        state.series[metric].max = Math.max(...values);
+        const structuralSum = values.reduce((a, b) => a + b, 0);
+        // Round to one decimal point to keep the top dashboard numbers readable and static
+        state.series[metric].avg = Math.round((structuralSum / values.length) * 10) / 10;
+        state.series[metric].min = Math.round(Math.min(...values) * 10) / 10;
+        state.series[metric].max = Math.round(Math.max(...values) * 10) / 10;
       }
 
-      // Mirror into top-level keys
+      // Synchronize changes to top-level metric pointers instantly
       if (metric === 'voltage') state.voltage = state.series[metric];
       if (metric === 'current') state.current = state.series[metric];
       if (metric === 'temperature') state.temperature = state.series[metric];

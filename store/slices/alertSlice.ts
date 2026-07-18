@@ -40,12 +40,13 @@ const alertSlice = createSlice({
       state.status = 'failed';
       state.error = action.payload;
     },
-    acknowledgeAlertRequest(state, _action: PayloadAction<string>) {
+    acknowledgeAlertRequest(state, _action: PayloadAction<number | string>) {
       state.error = null;
     },
     acknowledgeAlertSuccess(state, action: PayloadAction<Alert>) {
       state.alerts = state.alerts.map((a) =>
-        a.id === action.payload.id ? action.payload : a
+        // Safely normalizes both types to strings to avoid NaN comparison failures
+        String(a.id) === String(action.payload.id) ? action.payload : a
       );
       state.unreadCritical = state.alerts.filter(
         (a) => a.status === 'active' && a.severity === 'critical'
@@ -54,12 +55,13 @@ const alertSlice = createSlice({
     acknowledgeAlertFailure(state, action: PayloadAction<string>) {
       state.error = action.payload;
     },
-    resolveAlertRequest(state, _action: PayloadAction<string>) {
+    resolveAlertRequest(state, _action: PayloadAction<number | string>) {
       state.error = null;
     },
     resolveAlertSuccess(state, action: PayloadAction<Alert>) {
       state.alerts = state.alerts.map((a) =>
-        a.id === action.payload.id ? action.payload : a
+        // Safely normalizes both types to strings to avoid NaN comparison failures
+        String(a.id) === String(action.payload.id) ? action.payload : a
       );
       state.unreadCritical = state.alerts.filter(
         (a) => a.status === 'active' && a.severity === 'critical'
@@ -69,7 +71,7 @@ const alertSlice = createSlice({
       state.error = action.payload;
     },
     pushAlert(state, action: PayloadAction<Alert>) {
-      const exists = state.alerts.some((a) => a.id === action.payload.id);
+      const exists = state.alerts.some((a) => String(a.id) === String(action.payload.id));
       if (!exists) {
         state.alerts = [action.payload, ...state.alerts];
         if (action.payload.severity === 'critical' && action.payload.status === 'active') {

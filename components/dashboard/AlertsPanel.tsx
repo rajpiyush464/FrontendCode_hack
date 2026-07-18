@@ -24,8 +24,8 @@ interface AlertsPanelProps {
   volume: number;
   onSetVolume: (v: number) => void;
   onToggleSound: () => void;
-  onAcknowledge: (id: string) => void;
-  onResolve: (id: string) => void;
+  onAcknowledge: (id: number | string) => void;
+  onResolve: (id: number | string) => void;
   onResolveAll: () => void;
   compact?: boolean;
   className?: string;
@@ -119,7 +119,6 @@ export function AlertsPanel({
         subtitle={`${active.length} active · ${criticalActive} critical`}
         action={
           <div className="flex flex-wrap items-center gap-1.5">
-            {/* Volume control switch + slider */}
             <div className="relative flex items-center">
               <Button
                 variant="ghost"
@@ -154,7 +153,6 @@ export function AlertsPanel({
               </AnimatePresence>
             </div>
 
-            {/* Export to Excel/CSV */}
             <Button
               variant="ghost"
               size="icon"
@@ -164,7 +162,6 @@ export function AlertsPanel({
               <Download className="h-4 w-4" />
             </Button>
 
-            {/* Resolve all */}
             <Button
               variant="success"
               size="sm"
@@ -224,6 +221,21 @@ export function AlertsPanel({
                         )}
                       </div>
                       <p className="mt-0.5 text-xs leading-relaxed text-slate-400">{alert.message}</p>
+                      
+                      {/* Diagnostic Summary Display */}
+                      {alert.rca_data && typeof alert.rca_data === 'object' && (
+                        <div className="mt-2 p-2.5 bg-slate-900/90 rounded-lg border border-slate-700/60 text-[11px] space-y-1.5 text-left">
+                          <div className="flex items-center justify-between border-b border-slate-800 pb-1">
+                            <span className="font-bold text-amber-400 tracking-wide uppercase text-[10px]">🔬 Engine Diagnostic</span>
+                            <span className="bg-slate-800 text-slate-300 px-1 py-0.5 rounded font-mono text-[10px]">Conf: {alert.rca_data.confidence_score}</span>
+                          </div>
+                          <div>
+                            <span className="text-slate-500 font-medium">Root Cause: </span>
+                            <span className="text-slate-200 italic">"{alert.rca_data.predicted_failure_mode}"</span>
+                          </div>
+                        </div>
+                      )}
+
                       <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[10px] text-slate-500">
                         <span>{alert.vehicleName || alert.vehicleId}</span>
                         <span>·</span>
@@ -239,6 +251,7 @@ export function AlertsPanel({
                           </>
                         )}
                       </div>
+                      
                       <div className="mt-2 flex flex-wrap gap-2">
                         <Button
                           variant="outline"
@@ -308,6 +321,38 @@ export function AlertsPanel({
             <p className="rounded-xl border border-white/10 bg-white/5 p-3 text-sm leading-relaxed text-slate-200">
               {viewTarget.message}
             </p>
+
+            {/* Detailed Modal Breakdown */}
+            {viewTarget.rca_data && typeof viewTarget.rca_data === 'object' && (
+              <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 text-xs space-y-3 text-left">
+                <div className="flex justify-between items-center border-b border-white/10 pb-2">
+                  <span className="font-bold text-amber-400 uppercase tracking-wider text-[11px]">🔬 Deep Diagnostic Root Cause Data</span>
+                  <span className="bg-slate-800 text-slate-200 px-2 py-0.5 rounded font-mono">Confidence: {viewTarget.rca_data.confidence_score}</span>
+                </div>
+                <div>
+                  <p className="text-slate-400 font-medium">Predicted Failure Vector:</p>
+                  <p className="text-slate-200 font-sans italic mt-0.5 text-sm">"{viewTarget.rca_data.predicted_failure_mode}"</p>
+                </div>
+                <div>
+                  <p className="text-slate-400 font-medium mb-1">Impacted Elements:</p>
+                  <div className="flex flex-wrap gap-1">
+                    {viewTarget.rca_data.sub_systems_affected?.map((sys: string, idx: number) => (
+                      <span key={idx} className="bg-red-950/40 text-red-300 border border-red-900/40 px-2 py-0.5 rounded text-[10px]">
+                        {sys}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+                <div className="pt-2 border-t border-white/5">
+                  <p className="text-slate-400 font-medium mb-1">Mitigation Instructions:</p>
+                  <ul className="list-disc pl-4 space-y-1 text-slate-300">
+                    {viewTarget.rca_data.actionable_recommendations?.map((rec: string, idx: number) => (
+                      <li key={idx}>{rec}</li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            )}
 
             <div className="grid grid-cols-2 gap-3">
               <DetailField label="Category" value={viewTarget.category} />
